@@ -40,7 +40,7 @@ class MovingObjectDetector:
     def start_calibration(self):
         self.state = StateEnum.CALIBRATING
         self.learn_counter = 0
-        self.bgsubtractor = cv2.BackgroundSubtractorMOG(
+        self.bgsubtractor = cv2.bgsegm.createBackgroundSubtractorMOG(
             backgroundRatio=self.backgroundRatio, 
             nmixtures=self.nmixtures, 
             history=self.history
@@ -62,8 +62,12 @@ class MovingObjectDetector:
             if DEBUG:
                 cv2.imshow('moving_object_detector_debug', masked_img)
 
-            contours, hierarchy = cv2.findContours(masked_img,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
-            contours = [cnt for cnt in contours if cv2.contourArea(cnt) > 50*50]
+            _unused_img, contours, hierarchy = cv2.findContours(
+                masked_img,
+                mode=cv2.RETR_TREE,
+                method=cv2.CHAIN_APPROX_SIMPLE
+            )
+            contours = [cnt for cnt in contours if len(cnt)>0 and cv2.contourArea(cnt) > 50*50]
             return contours
         elif self.state == StateEnum.CALIBRATED:
             masked_img = self.bgsubtractor.apply(img, learningRate = 0)
@@ -71,7 +75,11 @@ class MovingObjectDetector:
             if DEBUG:
                 cv2.imshow('moving_object_detector_debug', masked_img)
 
-            contours, hierarchy = cv2.findContours(masked_img,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+            _unused_img, contours, hierarchy = cv2.findContours(
+                masked_img,
+                mode=cv2.RETR_TREE,
+                method=cv2.CHAIN_APPROX_SIMPLE
+            )
             contours = [cnt for cnt in contours if cv2.contourArea(cnt) > 50*50]
             return contours
         else:
