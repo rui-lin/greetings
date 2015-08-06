@@ -49,3 +49,5 @@ Todo
 - method to train for new faces on the fly
 - object(face) tracking
 - (idea) canny edge detection to augment contour detection
+- try lbp cascade for face detection
+- test on high # of classes of faces
