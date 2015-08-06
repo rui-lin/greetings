@@ -48,3 +48,4 @@ Todo
 - face recognition on pre-trained images
 - method to train for new faces on the fly
 - object(face) tracking
+- (idea) canny edge detection to augment contour detection

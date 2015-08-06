@@ -58,3 +58,7 @@ target/
 
 # Virtual environment build files
 venv/
+
+# Local files
+local/
+backup/
