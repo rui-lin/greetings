@@ -51,3 +51,9 @@ Todo
 - (idea) canny edge detection to augment contour detection
 - try lbp cascade for face detection
 - test on high # of classes of faces
+
+- store label string to int map
+- store training images
+- display reconstructed image from model data (eh.. 2^(neighbours)*gridX*gridY will be very rough)
+
+- merge two lbph models into one? since new training data doesn't affect old
