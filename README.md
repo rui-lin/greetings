@@ -45,15 +45,19 @@ Setup
 
 Todo
 ----
-- face recognition on pre-trained images
-- method to train for new faces on the fly
+- face recognition on pre-trained images (done)
+- method to train for new faces on the fly (done)
 - object(face) tracking
 - (idea) canny edge detection to augment contour detection
 - try lbp cascade for face detection
 - test on high # of classes of faces
 
-- store label string to int map
-- store training images
+- store label string to int map (done)
+- store training images (done)
 - display reconstructed image from model data (eh.. 2^(neighbours)*gridX*gridY will be very rough)
+  (can display some roughly right looking one i guess. )
 
 - merge two lbph models into one? since new training data doesn't affect old
+- (extension) sharingan, highlight tiny flies in view using manifying algorithm.
+
+- fix potential name conflict with "a b" and "a_b" in labels, disallow them.

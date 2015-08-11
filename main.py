@@ -116,7 +116,9 @@ class FaceRecognizer:
         elif len(int_label) == 1:
             int_label = int_label[0]
         elif len(int_label) == 0:   # no labels found, create new
-            used_ints = self.model.getLabels() or []
+            used_ints = self.model.getLabels()
+            if used_ints is None:
+                used_ints = []
             try:
                 int_label = (i for i in xrange(1,2**62) if i not in used_ints).next()
                 self.model.setLabelInfo(int_label, string_label)
@@ -129,6 +131,16 @@ class FaceRecognizer:
         self.training_counter = 0
         self.training_label = int_label
         print "start updating face %i (%s)" % (self.training_label, string_label)
+
+    # Finds next available name in format [name]-[next_avail_int_counter].[extension]
+    def find_next_training_img_name(self, label, extension):
+        prefix = label.replace(" ", "_")
+        for i in xrange(1,2**62):
+            name = 'local/%s-%i.%s' % (prefix, i, extension)
+            if not any(glob.iglob(name)):
+                return name
+        return None
+
 
     # Returns list of (face, label, confidence) for each face given
     def recognize_faces(self, img, faces):
@@ -146,6 +158,13 @@ class FaceRecognizer:
                 labels = np.array([self.training_label])
                 self.model.update(images, labels)
                 self.training_counter += 1
+
+                filename = self.find_next_training_img_name(
+                    self.model.getLabelInfo(self.training_label),
+                    "bmp"
+                )
+
+                cv2.imwrite(filename, images[0])
             else:
                 print "WARNING: multiple faces detected - canceling training"
                 self.training_label = None
