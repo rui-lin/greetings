@@ -51,6 +51,7 @@ Todo
 - (idea) canny edge detection to augment contour detection
 - try lbp cascade for face detection
 - test on high # of classes of faces
+- speak names
 
 - store label string to int map (done)
 - store training images (done)

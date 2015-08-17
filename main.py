@@ -3,6 +3,9 @@ import numpy as np
 import datetime
 import glob
 import os
+import subprocess
+from threading import Thread
+import Queue
 
 DEBUG = True
 
@@ -21,7 +24,7 @@ class FaceDetector:
             img,
             scaleFactor=1.1,
             minNeighbors=5,
-            minSize=(50, 50),
+            minSize=(20, 20),
             flags=0#cv2.cv.CV_HAAR_SCALE_IMAGE
         )
         return faces
@@ -161,7 +164,7 @@ class FaceRecognizer:
 
                 filename = self.find_next_training_img_name(
                     self.model.getLabelInfo(self.training_label),
-                    "bmp"
+                    "png"
                 )
 
                 cv2.imwrite(filename, images[0])
@@ -225,7 +228,7 @@ def crop_image(img, rect):
 # Each model.getHistogram() is a datapoint
 
 def main():
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(1)
     faceDetector = FaceDetector()
     #objDetector = MovingObjectDetector()
     faceRecognizer = FaceRecognizer()
