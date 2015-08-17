@@ -225,6 +225,39 @@ def crop_image(img, rect):
         - update called every frame.
 """
 
+class SpeechModule:
+    def __init__(self):
+        self.acknowledged = set()
+        self.t1 = Thread(target = self.run_1, daemon=True) #daemon so will not block exiting
+        self.speech_queue = Queue.Queue()
+
+    def run_1(self):
+        while True:
+            # Speak one sentence at a time.
+            sentence = self.speech_queue.get(block=True)
+            proc = subprocess.Popen(["espeak", sentence])
+            proc.wait()
+
+    def start(self):
+        self.t1.start()
+
+    def update_faces_in_view(self, faces):
+        # If people move out of view, they are not acknowledged anymore.
+        current = set(label for (_, label, _) in faces)
+        self.acknowledged = self.acknowledged & current
+
+        # See if there's new faces to acknowledge.
+        for (face, label, unconfidence) in faces:
+            if unconfidence < 150 and label not in self.acknowledged:
+                if label == "Rui Lin":
+                    self.speech_queue.put("Hello master Ray.")
+                elif label == "Jessica":
+                    self.speech_queue.put("Hello master Jessica.")
+                else:
+                    self.speech_queue.put("Hello %s." % label)
+                self.acknowledged.add(label)
+
+
 # Each model.getHistogram() is a datapoint
 
 def main():
@@ -234,6 +267,8 @@ def main():
     faceRecognizer = FaceRecognizer()
     faceRecognizer.load_newest_model()
     #objDetector.start_calibration()
+    speechm = SpeechModule()
+    speechm.start()
 
     frame_counter = 0
     while ( cap.isOpened() ):
@@ -245,6 +280,7 @@ def main():
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             faces = faceDetector.detect_faces(gray)
             recognized_faces = faceRecognizer.recognize_faces(gray, faces)
+            speechm.update_faces_in_view(recognized_faces)
 
         # Draw moving objects contour
         #if len(contours) > 0:
