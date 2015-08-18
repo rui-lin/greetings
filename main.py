@@ -94,6 +94,7 @@ class MovingObjectDetector:
 class FaceRecognizer:
     """ 
     LBPH over eigenfaces + fisherfaces, primarily because it can be updated
+    Note: Each model.getHistogram() is a datapoint
     """
     def __init__(self):
         self.model = cv2.face.createLBPHFaceRecognizer()
@@ -204,16 +205,23 @@ class FaceRecognizer:
         model_files = list(glob.iglob('local/face_model_*.yaml'))
         if any(model_files):
             newest_model_file = max(model_files, key=os.path.getctime)
-            print "loading existing facial recognition data from %s" % newest_model_file
+            print "Loading existing facial recognition data from %s .." % newest_model_file
             self.model.load(newest_model_file)
             self.state = StateEnum.CALIBRATED
             self.loaded_file = newest_model_file
+            print "Done."
 
 
 # Rect should be a 4-tuple (x, y, w, h)
 def crop_image(img, rect):
     x, y, w, h = rect
     return img[y:y+h, x:x+w]
+
+# Returns bool, if rect r is inside q.
+def inside(r, q):
+    rx, ry, rw, rh = r
+    qx, qy, qw, qh = q
+    return rx > qx and ry > qy and rx + rw < qx + qw and ry + rh < qy + qh
 
 
 """
@@ -228,7 +236,9 @@ def crop_image(img, rect):
 class SpeechModule:
     def __init__(self):
         self.acknowledged = set()
-        self.t1 = Thread(target = self.run_1, daemon=True) #daemon so will not block exiting
+        self.t1 = Thread(target = self.run_1) 
+        self.t1.daemon = True # daemon so will not block exiting. 
+                              # NB daemon threads shouldn't hold any sys resources (eg. write file)
         self.speech_queue = Queue.Queue()
 
     def run_1(self):
@@ -258,15 +268,34 @@ class SpeechModule:
                 self.acknowledged.add(label)
 
 
-# Each model.getHistogram() is a datapoint
+class BodyDetector:
+    def __init__(self):
+        self.hog = cv2.HOGDescriptor()
+        self.hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
+
+    # Returns list of rect-tuples (rx, ry, rw, rh)
+    def detect_bodies(self, img):
+        found, weights = self.hog.detectMultiScale(img, 
+            winStride=(8,8), padding=(32,32), scale=1.05)
+        found_filtered = []
+        for ri, r in enumerate(found):
+            for qi, q in enumerate(found):
+                if ri != qi and inside(r, q):
+                    break
+            else:
+                found_filtered.append(r)
+        # todo look into 'useMeanshiftGrouping'
+        return found_filtered
+
 
 def main():
-    cap = cv2.VideoCapture(1)
+    cap = cv2.VideoCapture(0)
     faceDetector = FaceDetector()
     #objDetector = MovingObjectDetector()
     faceRecognizer = FaceRecognizer()
     faceRecognizer.load_newest_model()
     #objDetector.start_calibration()
+    bodyDetector = BodyDetector()
     speechm = SpeechModule()
     speechm.start()
 
@@ -281,6 +310,7 @@ def main():
             faces = faceDetector.detect_faces(gray)
             recognized_faces = faceRecognizer.recognize_faces(gray, faces)
             speechm.update_faces_in_view(recognized_faces)
+            bodies = bodyDetector.detect_bodies(frame)
 
         # Draw moving objects contour
         #if len(contours) > 0:
@@ -308,6 +338,10 @@ def main():
                 color = (0,255,0),
                 thickness = 2
             )
+
+        # Draw bodies
+        for (x, y, w, h) in bodies:
+            cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 122, 255), 2)
         
         cv2.imshow('img', frame)
 

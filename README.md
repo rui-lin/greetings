@@ -63,3 +63,24 @@ Todo
 
 - fix potential name conflict with "a b" and "a_b" in labels, disallow them.
 - order imports
+
+Notes on Algorithms Used
+------------------------
+
+HOG (Histogram of Oriented Gradients) - Object Detection
+
+This is a feature descriptor. Feature descriptors intend to generalize the objects they are
+describing to increase robustness. This particular one uses a "global" feature vector, rather 
+than a collection of local features. To deal with object translation, a fixed size sliding window 
+is used, and a HOG descriptor computed for each. To deal with scaling, the image is scaled to 
+multiple sizes and each searched. Rotation is dealt with by providing more data.
+
+To compute the descriptor, 8x8 cells within the sliding window are examined, and a histogram of
+the gradient angles per pixel computed, weighted by the gradient magnitude, split to nearest
+bins if necessary. They are then normalized by blocks (groups of 2 by 2 cells), with 50% overlap, 
+by concatenating the histograms into one large vector, and normalizing this large vector. All
+the groups are concatentated to produce the final descriptor.
+
+SVM (Support Vector Machine) is then typically used for classification.
+
+Does not appear to work well with partial occlusions.
