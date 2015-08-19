@@ -67,7 +67,7 @@ Todo
 Notes on Algorithms Used
 ------------------------
 
-HOG (Histogram of Oriented Gradients) - Object Detection
+**HOG (Histogram of Oriented Gradients) - Object Detection**
 
 This is a feature descriptor. Feature descriptors intend to generalize the objects they are
 describing to increase robustness. This particular one uses a "global" feature vector, rather 
@@ -84,3 +84,19 @@ the groups are concatentated to produce the final descriptor.
 SVM (Support Vector Machine) is then typically used for classification.
 
 Does not appear to work well with partial occlusions.
+
+**__Morphological Transformations__**
+
+**Erosion - Softly expands dark areas in a binary image.**
+Works by superimposing a structuring element (eg. a 5x5 circle, line, square) on each foreground
+pixel (white). If element has at least one background (black) pixel, input pixel become background.
+
+**Dilation - softly expands white areas in a binary image**
+Similar to erosion, if superimposed element has at least one foreground(white) pixel, input pixel
+becomes foreground.
+
+**Opening - reduce salt noise (extra whites).**
+Same as erosion followed by dilation. Subtler effect.
+
+**Closing - reduce pepper noise (extra blacks).**
+Same as dilation followed by erosion. Subtler effect.

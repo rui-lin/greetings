@@ -34,9 +34,9 @@ class StateEnum:
 
 class MovingObjectDetector:
     def __init__(self):
-        self.history = 50
+        self.history = 60
         self.nmixtures = 3
-        self.backgroundRatio = 0.000000001 # how much is background
+        self.backgroundRatio = 0.1 # how much is background
         self.bgsubtractor = None
         self.learn_counter = 0
         self.state = StateEnum.NOT_CALIBRATED
@@ -45,11 +45,34 @@ class MovingObjectDetector:
     def start_calibration(self):
         self.state = StateEnum.CALIBRATING
         self.learn_counter = 0
+        """
         self.bgsubtractor = cv2.bgsegm.createBackgroundSubtractorMOG(
             backgroundRatio=self.backgroundRatio, 
             nmixtures=self.nmixtures, 
             history=self.history
         )
+        """
+        self.bgsubtractor = cv2.createBackgroundSubtractorMOG2(
+            history=self.history,
+            varThreshold=32  # threshold for distance, to see whether same vs new component
+                             # higher value reduce sensitivity
+        )
+        self.bgsubtractor.setBackgroundRatio(self.backgroundRatio)
+        self.bgsubtractor.setDetectShadows(False)
+        self.bgsubtractor.setComplexityReductionThreshold(0.001) # 0.05 is default
+        self.bgsubtractor.setVarThresholdGen(100)
+        """
+        self.bgsubtractor = cv2.bgsegm.createBackgroundSubtractorGMG(
+            initializationFrames=self.history,
+            decisionThreshold=self.backgroundRatio
+        )
+        """
+        """
+        self.bgsubtractor = cv2.createBackgroundSubtractorKNN()
+        self.bgsubtractor.setHistory(self.history)
+        """
+        self.bgkernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3))
+
         print "starting - moving objector detector calibration"
 
     def detect_moving_objects(self, img):
@@ -61,7 +84,10 @@ class MovingObjectDetector:
 
         # Do state-based processing
         if self.state == StateEnum.CALIBRATING:
-            masked_img = self.bgsubtractor.apply(img, learningRate = 1.0/self.history) # edit
+            masked_img = self.bgsubtractor.apply(img, learningRate = 1/self.history) # edit
+            #masked_img = cv2.erode(masked_img, None, iterations=2)
+            masked_img = cv2.morphologyEx(masked_img, cv2.MORPH_OPEN, self.bgkernel)
+            #masked_img = cv2.morphologyEx(masked_img, cv2.MORPH_CLOSE, self.bgkernel)
             self.learn_counter += 1
 
             if DEBUG:
@@ -75,7 +101,10 @@ class MovingObjectDetector:
             contours = [cnt for cnt in contours if len(cnt)>0 and cv2.contourArea(cnt) > 50*50]
             return contours
         elif self.state == StateEnum.CALIBRATED:
-            masked_img = self.bgsubtractor.apply(img, learningRate = 0)
+            masked_img = self.bgsubtractor.apply(img,  learningRate = 0.005/self.history)
+            #masked_img = cv2.erode(masked_img, None, iterations=2)
+            masked_img = cv2.morphologyEx(masked_img, cv2.MORPH_OPEN, self.bgkernel)
+            #masked_img = cv2.morphologyEx(masked_img, cv2.MORPH_CLOSE, self.bgkernel)
 
             if DEBUG:
                 cv2.imshow('moving_object_detector_debug', masked_img)
@@ -289,12 +318,12 @@ class BodyDetector:
 
 
 def main():
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(1)
     faceDetector = FaceDetector()
-    #objDetector = MovingObjectDetector()
+    objDetector = MovingObjectDetector()
     faceRecognizer = FaceRecognizer()
     faceRecognizer.load_newest_model()
-    #objDetector.start_calibration()
+    objDetector.start_calibration()
     bodyDetector = BodyDetector()
     speechm = SpeechModule()
     speechm.start()
@@ -303,7 +332,7 @@ def main():
     while ( cap.isOpened() ):
         ret, frame = cap.read()
 
-        #contours = objDetector.detect_moving_objects(frame)
+        contours = objDetector.detect_moving_objects(frame)
 
         if frame_counter % 5 == 0:
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -313,9 +342,9 @@ def main():
             bodies = bodyDetector.detect_bodies(frame)
 
         # Draw moving objects contour
-        #if len(contours) > 0:
-        #    for cnt in contours:
-        #        cv2.drawContours(frame,[cnt],0,(0,255,0),2)
+        if len(contours) > 0:
+            for cnt in contours:
+                cv2.drawContours(frame,[cnt],0,(0,255,0),2)
 
         # Draw around face
         for (x, y, w, h) in faces:
@@ -349,8 +378,8 @@ def main():
         if k == 27:
             faceRecognizer.save()
             break
-        #if k == ord('c'):
-        #    objDetector.start_calibration()
+        if k == ord('c'):
+            objDetector.start_calibration()
         if k == ord('1'):
             faceRecognizer.start_training("Rui Lin")
         if k == ord('2'):
