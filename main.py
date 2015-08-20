@@ -176,7 +176,7 @@ class FaceRecognizer:
 
 
     # Returns list of (face, label, confidence) for each face given
-    def recognize_faces(self, img, faces):
+    def recognize(self, img, faces):
         # State changes
         if self.training_counter >= self.max_training_counter:
             self.state = StateEnum.CALIBRATED
@@ -288,13 +288,24 @@ class SpeechModule:
         # See if there's new faces to acknowledge.
         for (face, label, unconfidence) in faces:
             if unconfidence < 150 and label not in self.acknowledged:
-                if label == "Rui Lin":
-                    self.speech_queue.put("Hello master Ray.")
-                elif label == "Jessica":
-                    self.speech_queue.put("Hello master Jessica.")
-                else:
-                    self.speech_queue.put("Hello %s." % label)
+                self.say_hello(label)
                 self.acknowledged.add(label)
+
+    def say_hello(self, person):
+        if person == "Rui Lin":
+            self.speech_queue.put("Hello master Ray.")
+        elif person == "Jessica":
+            self.speech_queue.put("Hello master Jessica.")
+        else:
+            self.speech_queue.put("Hello %s." % person)
+
+    def say_goodbye(self, person):
+        if person == "Rui Lin":
+            self.speech_queue.put("Goodbye master Ray.")
+        elif person == "Jessica":
+            self.speech_queue.put("Goodbye master Jessica.")
+        else:
+            self.speech_queue.put("Goodbye %s." % person)
 
 
 class BodyDetector:
@@ -317,8 +328,102 @@ class BodyDetector:
         return found_filtered
 
 
+class Object:
+    def __init__(self, contour=[], centroid=(), id=None, name=None, updated=True):
+        self.contour = contour
+        self.centroid = centroid
+        self.id = id
+        self.name = name
+        self.updated = updated
+
+class ObjectTracker:
+    def __init__(self, speechm):
+        self.objects = []
+        self.id_increment = 0
+        self.speechm = speechm
+        # todo account for offscreen
+
+    def update(self, contours, recognized_faces):
+        self.update_object_movements(contours)
+        self.update_object_recognition(recognized_faces)
+
+    # Updating object movements is performed in two steps.
+    # 1. For each new position, update an existing one, or create a new. 
+    # 2. Remove unupdated existing ones.
+    # TODO: eg. frame 1: two objects, frame 2: one obj, between orig two. how to handle?
+    def update_object_movements(self, new_contours):
+        for obj in self.objects:
+            obj.updated = False
+
+        for new_contour in new_contours:
+            new_centroid = self.get_centroid(new_contour)
+
+            # find dist and index to closest existing centroid
+            dists = [self.sqr_dist(new_centroid, obj.centroid) for obj in self.objects]
+            if len(dists) > 0:
+                j, dist = min((jd for jd in enumerate(dists)), key=lambda x:x[1])
+                matched = True if dist < 100**2 else False # only count if movement plausible
+            else:
+                matched = False
+
+            # if there's a match, update, if not create new object.
+            if matched:
+                # import ipdb; ipdb.set_trace()
+                self.objects[j].centroid = new_centroid
+                self.objects[j].contour = new_contour
+                self.objects[j].updated = True
+            else: # new object
+                print "Identified new object %d" % self.id_increment
+                self.objects.append(
+                    Object(
+                        contour=new_contour,
+                        centroid=new_centroid,
+                        id=self.id_increment,
+                        updated=True
+                    )
+                )
+                self.id_increment += 1
+                
+        # Keep only updated objects
+        for x in self.objects:
+            if not x.updated and x.name is not None:
+                self.speechm.say_goodbye(x.name)
+        self.objects = [x for x in self.objects if x.updated]
+
+
+    def update_object_recognition(self, recognized_faces):
+        for (face, label, unconfidence) in recognized_faces:
+            objs = [(i, obj) for (i, obj) in enumerate(self.objects) if 
+                    self.rect_mostly_inside_polygon(face, obj.contour)]
+
+            if len(objs) == 1: # only 1 plausible match
+                (i, obj) = objs[0]
+                if self.objects[i].name != label:
+                    self.objects[i].name = label
+                    self.speechm.say_hello(label)
+            else:
+                print "two plausible body matches for %s." % label
+
+
+    def get_centroid(self, cnt):
+        M = cv2.moments(cnt)
+        centroid_x = int(M['m10']/M['m00'])
+        centroid_y = int(M['m01']/M['m00'])
+        return (centroid_x, centroid_y)
+
+    def rect_mostly_inside_polygon(self, rect, cnt):
+        # Mostly inside if center of rect is inside polygon
+        (x, y, w, h) = rect
+        pt = (x+w/2, y+h/2)
+        return cv2.pointPolygonTest(cnt, pt, False) == 1
+        # 1 is inside, -1 is outside, 0 is on
+
+    def sqr_dist(self, p1, p2):
+        return (p1[0]-p2[0])**2 + (p1[1]-p2[1])**2
+
+
 def main():
-    cap = cv2.VideoCapture(1)
+    cap = cv2.VideoCapture(0)
     faceDetector = FaceDetector()
     objDetector = MovingObjectDetector()
     faceRecognizer = FaceRecognizer()
@@ -327,6 +432,8 @@ def main():
     bodyDetector = BodyDetector()
     speechm = SpeechModule()
     speechm.start()
+    objTracker = ObjectTracker(speechm)
+    # create object tracker use it
 
     frame_counter = 0
     while ( cap.isOpened() ):
@@ -337,14 +444,33 @@ def main():
         if frame_counter % 5 == 0:
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             faces = faceDetector.detect_faces(gray)
-            recognized_faces = faceRecognizer.recognize_faces(gray, faces)
-            speechm.update_faces_in_view(recognized_faces)
+            recognized_faces = faceRecognizer.recognize(gray, faces)
             bodies = bodyDetector.detect_bodies(frame)
 
-        # Draw moving objects contour
-        if len(contours) > 0:
-            for cnt in contours:
-                cv2.drawContours(frame,[cnt],0,(0,255,0),2)
+        objTracker.update(contours, recognized_faces)
+
+        # Draw tracked objects
+        for obj in objTracker.objects:
+            if obj.name:
+                cv2.drawContours(frame,[obj.contour],0,(250,120,120),2)
+                cv2.putText(frame, 
+                    obj.name,
+                    org = (max(obj.centroid[0]-20,0), max(obj.centroid[1]-10,0)), 
+                    fontFace = cv2.FONT_HERSHEY_PLAIN,
+                    fontScale = 1.0,
+                    color = (250,120,120),
+                    thickness = 2
+                )
+            else:
+                cv2.drawContours(frame,[obj.contour],0,(0,255,0),2)
+                cv2.putText(frame, 
+                    "unknown %d" % obj.id,
+                    org = (max(obj.centroid[0]-20,0), max(obj.centroid[1]-10,0)), 
+                    fontFace = cv2.FONT_HERSHEY_PLAIN,
+                    fontScale = 1.0,
+                    color = (250,120,120),
+                    thickness = 2
+                )
 
         # Draw around face
         for (x, y, w, h) in faces:
@@ -383,7 +509,7 @@ def main():
         if k == ord('1'):
             faceRecognizer.start_training("Rui Lin")
         if k == ord('2'):
-            faceRecognizer.start_training("a")
+            faceRecognizer.start_training("Jessica")
         if k == ord('3'):
             faceRecognizer.start_training("a")
         if k == ord('4'):

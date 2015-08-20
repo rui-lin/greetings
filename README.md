@@ -48,6 +48,24 @@ Todo
 - face recognition on pre-trained images (done)
 - method to train for new faces on the fly (done)
 - object(face) tracking
+
+- enhance body detection
+    eg. FGDStatModel(slower) look at http://www.zoranz.net/Publications/zivkovicPRL2006.pdf
+        KNN http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.62.8313&rep=rep1&type=pdf
+
+        HOG+LBP (really good) http://www.xiaoyumu.com/s/PDF/Wang_HOG_LBP.pdf
+
+- body tracking
+    eg. multi bodypart. http://iris.usc.edu/outlines/papers/2006/wu-nevatia-cvpr06.pdf
+    eg. get contour that contains face, mark id. if multiple, abort. 
+        tracking: closest contour next frame is same person.
+        can add colour histogram maybe.. nah but doesn't account rotations then.
+
+- use face to recognize body then track it (done)
+
+- put expiry on add for sentences in sound queue.
+- make face go away once face detected.
+
 - (idea) canny edge detection to augment contour detection
 - try lbp cascade for face detection
 - test on high # of classes of faces
