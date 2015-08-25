@@ -3,6 +3,7 @@ import numpy as np
 import datetime
 import glob
 import os
+import math
 import subprocess
 from threading import Thread
 import Queue
@@ -82,11 +83,20 @@ class StaticBackgroundSubtractor:
 
         for i, cnt in enumerate(contours):
             (nxt, prev, child, par) = hier[i]
-            #if par >= 0: # has parent
-            if cv2.contourArea(cnt) < 50*50: # too small, suppress
+
+            cntArea = cv2.contourArea(cnt)
+            if cntArea < 50*50: # too small, prob noise, suppress
                 cv2.drawContours(diff, [cnt], 0, 0, -1)
             else:
-                cv2.drawContours(diff, [cnt], 0, 255, -1)
+                perimeter = cv2.arcLength(cnt, True)
+                # circle is 1, square ~0.7, people 0.2-0.8. noise <0.15
+                compactness = cntArea / perimeter**2 * math.pi * 4
+                print compactness
+
+                if compactness < 0.15: # prob noise
+                    cv2.drawContours(diff, [cnt], 0, 0, -1)
+                else:
+                    cv2.drawContours(diff, [cnt], 0, 255, -1)
 
         # Return foreground
         _ret, diff = cv2.threshold(diff, 20, 255, cv2.THRESH_BINARY)
