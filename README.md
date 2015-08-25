@@ -70,6 +70,8 @@ Todo
 - (idea) canny edge detection to augment contour detection **
 - improve foreground object detection (might try just subtract static background)
 
+- camera setting auto adjust for light??
+
 - use camshift for moving contour thing
 
 - try lbp cascade for face detection

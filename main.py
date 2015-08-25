@@ -35,18 +35,61 @@ class StateEnum:
 class StaticBackgroundSubtractor:
     def __init__(self):
         self.background = None
+        self.kernel_xlarge = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(15,15))
+        self.kernel_large = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(5,5))
+        self.kernel_small = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3))
 
     def apply(self, img, learningRate):
-        # img = cv2.medianBlur(img, 3) # todo decide if needed.
+        img = cv2.medianBlur(img, 5) # todo decide if needed.
 
         if learningRate == 1:
             self.background = img
 
+        # Get foreground mask
         diff = cv2.absdiff(self.background, img)
+        _ret, diff = cv2.threshold(diff, 20, 240, cv2.THRESH_BINARY)
         diff = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
-        _ret, diff = cv2.threshold(diff, 20, 255, cv2.THRESH_BINARY)
+        diff = cv2.morphologyEx(diff, cv2.MORPH_OPEN, self.kernel_small)
 
-        # cv2.imshow('blurred_video', img)
+        # Get loose foreground mask
+        foreground_mask = cv2.morphologyEx(diff, cv2.MORPH_CLOSE, self.kernel_large)
+        _ret, foreground_mask = cv2.threshold(foreground_mask, 1, 255, cv2.THRESH_BINARY)
+        masked_img = cv2.bitwise_and(img, img, mask=foreground_mask)
+
+        cv2.imshow('foreground mask', diff)
+        cv2.imshow('masked_img', masked_img)
+        cv2.moveWindow('foreground mask', 0, 0)
+
+        # Get edges in loose foreground
+        edges = cv2.Canny(masked_img, 30, 60, apertureSize=3, L2gradient=False) # try diff of edges
+        edges = cv2.dilate(edges, None, iterations=3)
+
+        cv2.imshow('canny', edges)
+        cv2.moveWindow('canny', 0, 500)
+        
+        _ret, edges = cv2.threshold(edges, 1, 15, cv2.THRESH_BINARY) # edge alone can't make something
+
+        # Add foreground + edges from loose foreground
+        diff = diff + edges
+
+        # Close, expand whites
+        diff = cv2.morphologyEx(diff, cv2.MORPH_CLOSE, self.kernel_large)
+
+        # Detect embedded contours, fill in
+        _unused, contours, hier = cv2.findContours(diff, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
+        if hier is not None:
+            hier = hier[0] # randomly one extra nest..
+
+        for i, cnt in enumerate(contours):
+            (nxt, prev, child, par) = hier[i]
+            #if par >= 0: # has parent
+            if cv2.contourArea(cnt) < 50*50: # too small, suppress
+                cv2.drawContours(diff, [cnt], 0, 0, -1)
+            else:
+                cv2.drawContours(diff, [cnt], 0, 255, -1)
+
+        # Return foreground
+        _ret, diff = cv2.threshold(diff, 20, 255, cv2.THRESH_BINARY)
         
         return diff
 
@@ -115,6 +158,7 @@ class MovingObjectDetector:
 
             if DEBUG:
                 cv2.imshow('moving_object_detector_debug', masked_img)
+                cv2.moveWindow('moving_object_detector_debug', 700, 500)
 
             _unused_img, contours, hierarchy = cv2.findContours(
                 masked_img,
@@ -131,6 +175,7 @@ class MovingObjectDetector:
 
             if DEBUG:
                 cv2.imshow('moving_object_detector_debug', masked_img)
+                cv2.moveWindow('moving_object_detector_debug', 700, 500)
 
             _unused_img, contours, hierarchy = cv2.findContours(
                 masked_img,
@@ -522,6 +567,7 @@ def main():
             cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 122, 255), 2)
         
         cv2.imshow('img', frame)
+        cv2.moveWindow('img', 700, 0)
 
         k = cv2.waitKey(10) & 0xff
         if k == 27:
