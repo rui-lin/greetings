@@ -32,6 +32,25 @@ class FaceDetector:
 class StateEnum:
     NOT_CALIBRATED, CALIBRATING, CALIBRATED = range(3)
 
+class StaticBackgroundSubtractor:
+    def __init__(self):
+        self.background = None
+
+    def apply(self, img, learningRate):
+        # img = cv2.medianBlur(img, 3) # todo decide if needed.
+
+        if learningRate == 1:
+            self.background = img
+
+        diff = cv2.absdiff(self.background, img)
+        diff = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
+        _ret, diff = cv2.threshold(diff, 20, 255, cv2.THRESH_BINARY)
+
+        # cv2.imshow('blurred_video', img)
+        
+        return diff
+
+
 class MovingObjectDetector:
     def __init__(self):
         self.history = 60
@@ -52,6 +71,7 @@ class MovingObjectDetector:
             history=self.history
         )
         """
+        """
         self.bgsubtractor = cv2.createBackgroundSubtractorMOG2(
             history=self.history,
             varThreshold=32  # threshold for distance, to see whether same vs new component
@@ -61,6 +81,9 @@ class MovingObjectDetector:
         self.bgsubtractor.setDetectShadows(False)
         self.bgsubtractor.setComplexityReductionThreshold(0.001) # 0.05 is default
         self.bgsubtractor.setVarThresholdGen(100)
+        """
+        self.history = 1
+        self.bgsubtractor = StaticBackgroundSubtractor()
         """
         self.bgsubtractor = cv2.bgsegm.createBackgroundSubtractorGMG(
             initializationFrames=self.history,
@@ -86,8 +109,8 @@ class MovingObjectDetector:
         if self.state == StateEnum.CALIBRATING:
             masked_img = self.bgsubtractor.apply(img, learningRate = 1/self.history) # edit
             #masked_img = cv2.erode(masked_img, None, iterations=2)
-            masked_img = cv2.morphologyEx(masked_img, cv2.MORPH_OPEN, self.bgkernel)
             #masked_img = cv2.morphologyEx(masked_img, cv2.MORPH_CLOSE, self.bgkernel)
+            masked_img = cv2.morphologyEx(masked_img, cv2.MORPH_OPEN, self.bgkernel)
             self.learn_counter += 1
 
             if DEBUG:
@@ -95,23 +118,23 @@ class MovingObjectDetector:
 
             _unused_img, contours, hierarchy = cv2.findContours(
                 masked_img,
-                mode=cv2.RETR_TREE,
+                mode=cv2.RETR_TREE, #cv2.RETR_FLOODFILL, 
                 method=cv2.CHAIN_APPROX_SIMPLE
             )
             contours = [cnt for cnt in contours if len(cnt)>0 and cv2.contourArea(cnt) > 50*50]
             return contours
         elif self.state == StateEnum.CALIBRATED:
-            masked_img = self.bgsubtractor.apply(img,  learningRate = 0.005/self.history)
+            masked_img = self.bgsubtractor.apply(img,  learningRate = 0.1/self.history)
             #masked_img = cv2.erode(masked_img, None, iterations=2)
-            masked_img = cv2.morphologyEx(masked_img, cv2.MORPH_OPEN, self.bgkernel)
             #masked_img = cv2.morphologyEx(masked_img, cv2.MORPH_CLOSE, self.bgkernel)
+            masked_img = cv2.morphologyEx(masked_img, cv2.MORPH_OPEN, self.bgkernel)
 
             if DEBUG:
                 cv2.imshow('moving_object_detector_debug', masked_img)
 
             _unused_img, contours, hierarchy = cv2.findContours(
                 masked_img,
-                mode=cv2.RETR_TREE,
+                mode=cv2.RETR_TREE, #cv2.RETR_FLOODFILL, 
                 method=cv2.CHAIN_APPROX_SIMPLE
             )
             contours = [cnt for cnt in contours if cv2.contourArea(cnt) > 50*50]
@@ -274,8 +297,8 @@ class SpeechModule:
         while True:
             # Speak one sentence at a time.
             sentence = self.speech_queue.get(block=True)
-            proc = subprocess.Popen(["espeak", sentence])
-            proc.wait()
+            #proc = subprocess.Popen(["espeak", sentence])
+            #proc.wait()
 
     def start(self):
         self.t1.start()

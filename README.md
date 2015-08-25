@@ -66,7 +66,12 @@ Todo
 - put expiry on add for sentences in sound queue.
 - make face go away once face detected.
 
-- (idea) canny edge detection to augment contour detection
+- improve face recognition. **
+- (idea) canny edge detection to augment contour detection **
+- improve foreground object detection (might try just subtract static background)
+
+- use camshift for moving contour thing
+
 - try lbp cascade for face detection
 - test on high # of classes of faces
 - speak names
@@ -118,3 +123,16 @@ Same as erosion followed by dilation. Subtler effect.
 
 **Closing - reduce pepper noise (extra blacks).**
 Same as dilation followed by erosion. Subtler effect.
+
+**__Image Preprocessing__**
+
+Median Filter - Each pixel is replaced by median of its neighbours. The square neighbourhood,
+also commonly called window, is usually 3x3 (including the pixel itself).
+It's more robust than the mean filter, and is good at preserving sharp edges.
+It's good for salt and pepper outlier noise, not as good for gaussian noise.
+Still kinda slow. Tested use somewhat, but still slow for real time processing when #neighbours large
+
+Gaussian Filter - Weighted average of surrounding pixels using gaussian function and distance for weight.
+
+Bilateral Filter - Gaussian filter of space, and of pixel intensity. So nearby pixels of similar weight
+are considered more. Achieves slighter better results than median, but slower, unused here.
