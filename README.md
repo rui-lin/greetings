@@ -45,41 +45,30 @@ Setup
 
 Todo
 ----
-- face recognition on pre-trained images (done)
-- method to train for new faces on the fly (done)
-- object(face) tracking
-
 - enhance body detection
     eg. FGDStatModel(slower) look at http://www.zoranz.net/Publications/zivkovicPRL2006.pdf
         KNN http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.62.8313&rep=rep1&type=pdf
 
         HOG+LBP (really good) http://www.xiaoyumu.com/s/PDF/Wang_HOG_LBP.pdf
 
-- body tracking
-    eg. multi bodypart. http://iris.usc.edu/outlines/papers/2006/wu-nevatia-cvpr06.pdf
-    eg. get contour that contains face, mark id. if multiple, abort. 
-        tracking: closest contour next frame is same person.
-        can add colour histogram maybe.. nah but doesn't account rotations then.
-
-- use face to recognize body then track it (done)
-
-- put expiry on add for sentences in sound queue.
+- put expiry on add for sentences in sound queue. **
 - make face go away once face detected.
 
-- improve face recognition. **
-- (idea) canny edge detection to augment contour detection **
-- improve foreground object detection (might try just subtract static background)
+- improve face recognition.
+  > congealing for alignment? based on gbhuang's unsupervised alignment paper
+    (http://vis-www.cs.umass.edu/papers/<iccv07alignment class="pdf"></iccv07alignment>)
 
 - camera setting auto adjust for light??
 
 - use camshift for moving contour thing
+- + good features to track?
+
+- deal with occluded bodies, separate faces visible. (segment foreground photos)
 
 - try lbp cascade for face detection
 - test on high # of classes of faces
 - speak names
 
-- store label string to int map (done)
-- store training images (done)
 - display reconstructed image from model data (eh.. 2^(neighbours)*gridX*gridY will be very rough)
   (can display some roughly right looking one i guess. )
 
@@ -88,6 +77,29 @@ Todo
 
 - fix potential name conflict with "a b" and "a_b" in labels, disallow them.
 - order imports
+
+Done
+----
+- face recognition on pre-trained images [done]
+- method to train for new faces on the fly [done]
+- object(face) tracking [done]
+
+- body tracking
+    eg. multi bodypart. http://iris.usc.edu/outlines/papers/2006/wu-nevatia-cvpr06.pdf
+    eg. get contour that contains face, mark id. if multiple, abort. 
+        tracking: closest contour next frame is same person.
+        can add colour histogram maybe.. nah but doesn't account rotations then.
+
+- use face to recognize body then track it [done]
+
+- improve face recognition
+  > use haar eye detector and scale rotate translate based on that. [done]
+
+- canny edge detection to augment contour detection [done]
+- improve foreground object detection (might try just subtract static background) [done]
+
+- store label string to int map [done]
+- store training images [done]
 
 Notes on Algorithms Used
 ------------------------
@@ -138,3 +150,5 @@ Gaussian Filter - Weighted average of surrounding pixels using gaussian function
 
 Bilateral Filter - Gaussian filter of space, and of pixel intensity. So nearby pixels of similar weight
 are considered more. Achieves slighter better results than median, but slower, unused here.
+
+Low pass vs high pass filter?

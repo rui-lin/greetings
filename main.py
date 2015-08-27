@@ -8,6 +8,8 @@ import subprocess
 from threading import Thread
 import Queue
 
+import face_alignment
+
 DEBUG = True
 
 class FaceDetector:
@@ -26,7 +28,7 @@ class FaceDetector:
             scaleFactor=1.1,
             minNeighbors=5,
             minSize=(20, 20),
-            flags=0#cv2.cv.CV_HAAR_SCALE_IMAGE
+            flags=0 #cv2.CV_HAAR_SCALE_IMAGE
         )
         return faces
 
@@ -91,7 +93,6 @@ class StaticBackgroundSubtractor:
                 perimeter = cv2.arcLength(cnt, True)
                 # circle is 1, square ~0.7, people 0.2-0.8. noise <0.15
                 compactness = cntArea / perimeter**2 * math.pi * 4
-                print compactness
 
                 if compactness < 0.15: # prob noise
                     cv2.drawContours(diff, [cnt], 0, 0, -1)
@@ -205,8 +206,9 @@ class FaceRecognizer:
     """
     def __init__(self):
         self.model = cv2.face.createLBPHFaceRecognizer()
+        self.faceAligner = face_alignment.FaceAligner()
 
-        self.max_training_counter = 5
+        self.max_training_counter = 2
         self.training_counter = 0
         self.training_label = None
         self.state_before_training = StateEnum.NOT_CALIBRATED
@@ -252,7 +254,6 @@ class FaceRecognizer:
                 return name
         return None
 
-
     # Returns list of (face, label, confidence) for each face given
     def recognize(self, img, faces):
         # State changes
@@ -265,17 +266,24 @@ class FaceRecognizer:
         # State based processing
         if self.state == StateEnum.CALIBRATING:
             if len(faces) == 1:
-                images = [crop_image(img, faces[0])]
-                labels = np.array([self.training_label])
-                self.model.update(images, labels)
-                self.training_counter += 1
+                aligned_face = self.faceAligner.align_face(crop_image(img, faces[0]))
+                if aligned_face is not None:
+                    images = [aligned_face]
+                    labels = np.array([self.training_label])
+                    self.model.update(images, labels)
+                    self.training_counter += 1
 
-                filename = self.find_next_training_img_name(
-                    self.model.getLabelInfo(self.training_label),
-                    "png"
-                )
+                    filename = self.find_next_training_img_name(
+                        self.model.getLabelInfo(self.training_label),
+                        "png"
+                    )
 
-                cv2.imwrite(filename, images[0])
+                    cv2.imwrite(filename, images[0])
+                else:
+                    print "WARNING: unable to get clear view of eyes for face alignment - canceling training"
+                    self.training_label = None
+                    self.training_counter = 0
+                    self.state = self.state_before_training
             else:
                 print "WARNING: multiple faces detected - canceling training"
                 self.training_label = None
@@ -285,8 +293,16 @@ class FaceRecognizer:
         elif self.state == StateEnum.CALIBRATED:
             predicts = []
             for face in faces:
-                (label, var) = self.model.predict(crop_image(img, face))
-                predicts += [(face, self.model.getLabelInfo(label), var)]
+                cropped_face = crop_image(img, face)
+                aligned_face = self.faceAligner.align_face(cropped_face)
+                if aligned_face is not None:
+                    (label, var) = self.model.predict(aligned_face)
+                    predicts += [(face, self.model.getLabelInfo(label), var)]
+                else:
+                    pass
+                    # Don't use fall-back
+                    # (label, var) = self.model.predict(cropped_face)
+                    # predicts += [(face, self.model.getLabelInfo(label), var)]
             return predicts
         elif self.state == StateEnum.NOT_CALIBRATED:
             return []
@@ -317,7 +333,6 @@ class FaceRecognizer:
             self.state = StateEnum.CALIBRATED
             self.loaded_file = newest_model_file
             print "Done."
-
 
 # Rect should be a 4-tuple (x, y, w, h)
 def crop_image(img, rect):
@@ -352,8 +367,8 @@ class SpeechModule:
         while True:
             # Speak one sentence at a time.
             sentence = self.speech_queue.get(block=True)
-            #proc = subprocess.Popen(["espeak", sentence])
-            #proc.wait()
+            proc = subprocess.Popen(["espeak", sentence])
+            proc.wait()
 
     def start(self):
         self.t1.start()
@@ -590,9 +605,9 @@ def main():
         if k == ord('2'):
             faceRecognizer.start_training("Jessica")
         if k == ord('3'):
-            faceRecognizer.start_training("a")
+            faceRecognizer.start_training("Mom")
         if k == ord('4'):
-            faceRecognizer.start_training("a")
+            faceRecognizer.start_training("Dad")
         if k == ord('s'): # save new snapshot
             faceRecognizer.save(newfile=True)
 
