@@ -3,7 +3,7 @@ AI to perform hands-free actions. This is work-in-progress; I'm currently workin
 
 Currently, the AI can recognize bodies by faces, track bodies and their identities (with support for hidden faces, but not body occlusion), and greet recognized people. A convenient method for adding new people to its memory has also been created.
 
-The system uses a Haar cascade classifier and LBHP to detect and recognize faces. Foreground segmentation and contour detection, augmented by Canny edge detection, are used to detect likely bodies. An overlap of face and body allows their identities to be linked. Coarse optical flow algorithm allows the identity of the body to persist even if the face is later occluded. See below for a visual example.
+The system uses a Haar cascade classifier and LBPH to detect and recognize faces. Foreground segmentation and contour detection, augmented by Canny edge detection, are used to detect likely bodies. An overlap of face and body allows their identities to be linked. Coarse optical flow algorithm allows the identity of the body to persist even if the face is later occluded. See below for a visual example.
 
 New faces can be learned by standing in front of the webcam, and slowly rotating the head to capture data. The training images will be automatically cropped and aligned based on eye positions (detected via haar cascade as well).
 
